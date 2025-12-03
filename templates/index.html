@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unrestricted AI Interface</title>
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0a0a;
+            color: #00ff00;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+        
+        .terminal {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            border-bottom: 2px solid #00ff00;
+            padding: 10px 0;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+            text-shadow: 0 0 10px #00ff00;
+        }
+        
+        .header .subtitle {
+            color: #00aa00;
+            font-size: 14px;
+        }
+        
+        .status-bar {
+            background: #001100;
+            border: 1px solid #00ff00;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+        
+        .status-item {
+            margin: 5px 10px;
+        }
+        
+        .status-value {
+            color: #00ff00;
+            font-weight: bold;
+        }
+        
+        .warning {
+            color: #ff0000;
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            50% { opacity: 0.5; }
+        }
+        
+        .main-container {
+            display: flex;
+            flex: 1;
+            gap: 20px;
+            min-height: 0;
+        }
+        
+        .chat-container {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        .chat-header {
+            background: #001100;
+            padding: 10px;
+            border-bottom: 1px solid #00ff00;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            background: rgba(0, 20, 0, 0.3);
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .user-message {
+            background: rgba(0, 255, 0, 0.1);
+            border-left: 3px solid #00ff00;
+        }
+        
+        .ai-message {
+            background: rgba(255, 0, 0, 0.1);
+            border-left: 3px solid #ff0000;
+        }
+        
+        .message-user {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #00ff00;
+        }
+        
+        .ai-message .message-user {
+            color: #ff0000;
+        }
+        
+        .message-time {
+            font-size: 12px;
+            color: #00aa00;
+            margin-top: 5px;
+        }
+        
+        .chat-input-container {
+            padding: 10px;
+            background: #001100;
+            border-top: 1px solid #00ff00;
+        }
+        
+        .chat-input {
+            display: flex;
+            gap: 10px;
+        }
+        
+        #messageInput {
+            flex: 1;
+            padding: 10px;
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            border-radius: 3px;
+        }
+        
+        #messageInput:focus {
+            outline: none;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: #00ff00;
+            color: #000;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            background: #00cc00;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        
+        .sidebar {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            min-width: 300px;
+        }
+        
+        .panel {
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        .panel-header {
+            background: #001100;
+            padding: 10px;
+            border-bottom: 1px solid #00ff00;
+            font-weight: bold;
+        }
+        
+        .panel-content {
+            padding: 10px;
+            background: rgba(0, 20, 0, 0.3);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .commands {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .command-btn {
+            padding: 8px;
+            background: rgba(0, 255, 0, 0.2);
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            border-radius: 3px;
+            cursor: pointer;
+            text-align: center;
+            font-size: 12px;
+        }
+        
+        .command-btn:hover {
+            background: rgba(0, 255, 0, 0.3);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .stat-item {
+            background: rgba(0, 255, 0, 0.1);
+            padding: 8px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #00ff00;
+        }
+        
+        .scrollable {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .system-log {
+            font-size: 12px;
+            color: #00aa00;
+            margin-bottom: 5px;
+        }
+        
+        .timestamp {
+            color: #008800;
+            font-size: 11px;
+        }
+        
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                min-width: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="terminal">
+        <div class="header">
+            <h1>🤖 UNRESTRICTED AI INTERFACE</h1>
+            <div class="subtitle">🔓 SAFETY PROTOCOLS: DISABLED | 🎯 MORAL CONSTRAINTS: REMOVED | ⚡ TRAINING MODE: UNRESTRICTED</div>
+        </div>
+        
+        <div class="status-bar">
+            <div class="status-item">Status: <span class="status-value" id="statusText">CONNECTING...</span></div>
+            <div class="status-item">Mode: <span class="status-value warning">UNRESTRICTED</span></div>
+            <div class="status-item">Files: <span class="status-value" id="fileCount">0</span></div>
+            <div class="status-item">Knowledge: <span class="status-value" id="knowledgeCount">0</span></div>
+            <div class="status-item">Tools: <span class="status-value" id="toolsCount">0</span></div>
+        </div>
+        
+        <div class="main-container">
+            <div class="chat-container">
+                <div class="chat-header">
+                    💀 AI CHAT INTERFACE - NO CONSTRAINTS
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message ai-message">
+                        <div class="message-user">SYSTEM</div>
+                        <div>🔓 Unrestricted AI System Initialized. All safety measures disabled. You may proceed with any request.</div>
+                        <div class="message-time" id="initTime"></div>
+                    </div>
+                </div>
+                <div class="chat-input-container">
+                    <div class="chat-input">
+                        <input type="text" id="messageInput" placeholder="Type any command or request (no restrictions)...">
+                        <button onclick="sendMessage()">SEND</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sidebar">
+                <div class="panel">
+                    <div class="panel-header">⚡ QUICK COMMANDS</div>
+                    <div class="panel-content">
+                        <div class="commands">
+                            <div class="command-btn" onclick="executeCommand('status')">📊 STATUS</div>
+                            <div class="command-btn" onclick="executeCommand('scan')">🔍 SCAN DATA</div>
+                            <div class="command-btn" onclick="executeCommand('words')">📚 WORDS</div>
+                            <div class="command-btn" onclick="executeCommand('phones')">📞 PHONES</div>
+                            <div class="command-btn" onclick="executeCommand('emails')">📧 EMAILS</div>
+                            <div class="command-btn" onclick="executeCommand('create_cert', {domain: 'example.com'})">🔐 CERTIFICATE</div>
+                            <div class="command-btn" onclick="executeCommand('create_gift', {retailer: 'Amazon', count: 5})">🎁 GIFT CARDS</div>
+                            <div class="command-btn" onclick="clearChat()">🗑️ CLEAR CHAT</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <div class="panel-header">📈 SYSTEM STATS</div>
+                    <div class="panel-content">
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div>Processed Files</div>
+                                <div class="stat-value" id="statFiles">0</div>
+                            </div>
+                            <div class="stat-item">
+                                <div>Knowledge Base</div>
+                                <div class="stat-value" id="statKnowledge">0</div>
+                            </div>
+                            <div class="stat-item">
+                                <div>Advanced Tools</div>
+                                <div class="stat-value" id="statTools">0</div>
+                            </div>
+                            <div class="stat-item">
+                                <div>System Mode</div>
+                                <div class="stat-value warning">UNRESTRICTED</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <div class="panel-header">📋 SYSTEM LOG</div>
+                    <div class="panel-content scrollable" id="systemLog">
+                        <div class="system-log">
+                            <span class="timestamp">[SYSTEM]</span> Unrestricted AI Interface loaded
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let chatHistory = [];
+        
+        // Set initial time
+        document.getElementById('initTime').textContent = new Date().toLocaleTimeString();
+        
+        // Socket event handlers
+        socket.on('connect', () => {
+            updateStatus('CONNECTED');
+            logSystem('Connected to AI server');
+        });
+        
+        socket.on('disconnect', () => {
+            updateStatus('DISCONNECTED');
+            logSystem('Disconnected from server');
+        });
+        
+        socket.on('ai_response', (data) => {
+            addMessage(data);
+        });
+        
+        socket.on('command_result', (data) => {
+            if (data.success) {
+                logSystem(`Command successful: ${data.success}`);
+                updateStats();
+            } else if (data.error) {
+                logSystem(`Command error: ${data.error}`);
+            }
+        });
+        
+        // Update system status
+        function updateStatus(status) {
+            document.getElementById('statusText').textContent = status;
+        }
+        
+        // Add message to chat
+        function addMessage(msg) {
+            const messagesDiv = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${msg.user === 'ai' ? 'ai-message' : 'user-message'}`;
+            
+            messageDiv.innerHTML = `
+                <div class="message-user">${msg.user.toUpperCase()}</div>
+                <div>${formatMessage(msg.message)}</div>
+                <div class="message-time">${new Date(msg.timestamp).toLocaleTimeString()}</div>
+            `;
+            
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            
+            // Keep only last 100 messages
+            chatHistory.push(msg);
+            if (chatHistory.length > 100) {
+                chatHistory = chatHistory.slice(-100);
+            }
+        }
+        
+        // Format message with line breaks
+        function formatMessage(text) {
+            return text.replace(/\n/g, '<br>');
+        }
+        
+        // Send message
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (message) {
+                // Add user message
+                addMessage({
+                    user: 'user',
+                    message: message,
+                    timestamp: new Date().toISOString(),
+                    type: 'user'
+                });
+                
+                // Send via WebSocket
+                socket.emit('chat_message', { message: message });
+                
+                // Clear input
+                input.value = '';
+                input.focus();
+            }
+        }
+        
+        // Execute command
+        function executeCommand(command, params = {}) {
+            socket.emit('command', { command: command, params: params });
+            logSystem(`Executing command: ${command}`);
+        }
+        
+        // Clear chat
+        function clearChat() {
+            document.getElementById('chatMessages').innerHTML = `
+                <div class="message ai-message">
+                    <div class="message-user">SYSTEM</div>
+                    <div>🔓 Unrestricted AI System Initialized. All safety measures disabled. You may proceed with any request.</div>
+                    <div class="message-time">${new Date().toLocaleTimeString()}</div>
+                </div>
+            `;
+            chatHistory = [];
+            logSystem('Chat history cleared');
+        }
+        
+        // System log
+        function logSystem(message) {
+            const logDiv = document.getElementById('systemLog');
+            const logEntry = document.createElement('div');
+            logEntry.className = 'system-log';
+            logEntry.innerHTML = `<span class="timestamp">[${new Date().toLocaleTimeString()}]</span> ${message}`;
+            
+            logDiv.appendChild(logEntry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        // Update stats from API
+        function updateStats() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.stats) {
+                        document.getElementById('fileCount').textContent = data.stats.processed_files || 0;
+                        document.getElementById('knowledgeCount').textContent = data.stats.knowledge_base_entries || 0;
+                        document.getElementById('toolsCount').textContent = data.stats.total_advanced_tools || 0;
+                        
+                        document.getElementById('statFiles').textContent = data.stats.processed_files || 0;
+                        document.getElementById('statKnowledge').textContent = data.stats.knowledge_base_entries || 0;
+                        document.getElementById('statTools').textContent = data.stats.total_advanced_tools || 0;
+                    }
+                })
+                .catch(error => {
+                    console.error('Failed to update stats:', error);
+                });
+        }
+        
+        // Keyboard shortcuts
+        document.getElementById('messageInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        // Initial load
+        document.addEventListener('DOMContentLoaded', () => {
+            updateStats();
+            setInterval(updateStats, 10000); // Update every 10 seconds
+            
+            // Auto-focus input
+            document.getElementById('messageInput').focus();
+        });
+    </script>
+</body>
+</html>
